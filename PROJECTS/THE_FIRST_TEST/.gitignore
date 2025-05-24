@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+venv/
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+
+# Build outputs
+dist/
+build/
+public/
+
+# CSS preprocessors
+*.css.map
+.sass-cache/
+
+# JavaScript
+coverage/
+.nyc_output/
+
+# Testing
+screenshots/
+test-results/

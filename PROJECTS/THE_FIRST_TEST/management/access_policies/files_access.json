@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "description": "File access policies for IMAP agents",
+  "default_policy": "deny",
+  "agent_policies": {
+    "Project Manager": {
+      "read": [
+        "*"
+      ],
+      "write": [
+        "management/*",
+        "docs/*"
+      ],
+      "description": "Full orchestration access"
+    },
+    "Developer": {
+      "read": [
+        "src/*",
+        "management/planning/*",
+        "management/requirements/*"
+      ],
+      "write": [
+        "src/*"
+      ],
+      "description": "Source code development access"
+    },
+    "Tester": {
+      "read": [
+        "src/*",
+        "testing/*"
+      ],
+      "write": [
+        "testing/*"
+      ],
+      "description": "Testing and quality assurance access"
+    },
+    "Researcher": {
+      "read": [
+        "research/*",
+        "management/requirements/*"
+      ],
+      "write": [
+        "research/*"
+      ],
+      "description": "Research and analysis access"
+    }
+  }
+}
