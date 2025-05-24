@@ -2,6 +2,7 @@ import os
 import shutil
 from pathlib import Path
 from crewai.tools import tool
+from typing import Optional
 
 class FileOperationsLogic:
     """
@@ -122,7 +123,7 @@ class FileOperationsLogic:
                  dst.parent.mkdir(parents=True, exist_ok=True)
 
             if src.is_dir():
-                shutil.copytree(src, dst, dirs_exist_ok=True) # Added dirs_exist_ok=True for robustness
+                shutil.copytree(src, dst, dirs_exist_ok=True)
                 return f"Directory '{source_path}' copied to '{destination_path}' successfully."
             elif src.is_file():
                 shutil.copy2(src, dst) 
@@ -132,15 +133,12 @@ class FileOperationsLogic:
         except Exception as e:
             return f"Error copying from '{source_path}' to '{destination_path}': {e}"
 
+# Global instance for reuse
 _file_ops_logic = FileOperationsLogic()
 
-from pydantic import BaseModel, Field
-from typing import Optional
-
-class WriteFileInput(BaseModel):
-    file_path: str = Field(..., description="The full path to the file to be written")
-    content: str = Field(..., description="The content to write into the file")
-    overwrite: bool = Field(False, description="Whether to overwrite the file if it already exists")
+# ===== CREWAI TOOLS =====
+# WICHTIG: Keine separaten Pydantic BaseModels definieren!
+# CrewAI erstellt diese automatisch basierend auf den Funktionsparametern
 
 @tool("Write File Tool")
 def write_file_tool(file_path: str, content: str, overwrite: bool = False) -> str:
