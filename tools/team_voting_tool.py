@@ -1,6 +1,6 @@
 import json
 import time
-from typing import Dict, List, Optional, Any, Type  # <-- FIXED: Added missing comma after Type
+from typing import Dict, List, Optional, Any, Type
 from enum import Enum
 from dataclasses import dataclass, asdict
 from crewai.tools import BaseTool
@@ -209,7 +209,7 @@ class DemocraticVotingLogic:
         ranked_option_ids: List[str], 
         reasoning: str
     ) -> bool:
-        """Agent gibt seine Stimme ab."""
+        """Agent gibt seine Stimme ab - COMPLETE VERSION."""
         if decision_id not in self.active_decisions:
             return False
             
@@ -239,10 +239,15 @@ class DemocraticVotingLogic:
         
         decision.votes.append(vote)
         print(f"--- Democracy Engine: Vote submitted by {agent_name} for {decision_id} ---")
+        
+        # Auto-calculate winner if all votes are in
+        if len(decision.votes) >= len(decision.participating_agents):
+            self.calculate_ranked_choice_winner(decision_id)
+        
         return True
     
     def calculate_ranked_choice_winner(self, decision_id: str) -> Optional[str]:
-        """Berechnet Gewinner mit Ranked Choice Voting."""
+        """Berechnet Gewinner mit Ranked Choice Voting - COMPLETE VERSION."""
         if decision_id not in self.active_decisions:
             return None
             
@@ -250,31 +255,52 @@ class DemocraticVotingLogic:
         if not decision.votes or not decision.voting_options:
             return None
             
-        # Einfache Implementierung: Erste Wahl zählt am meisten
+        print(f"--- Democracy Engine: Calculating ranked choice winner for {decision_id} ---")
+        
+        # Ranked Choice Voting Algorithm: Borda Count Method
         option_scores = {opt.option_id: 0 for opt in decision.voting_options}
         
         for vote in decision.votes:
             if vote.ranked_options:
-                # Erste Wahl: 3 Punkte, Zweite: 2 Punkte, Dritte: 1 Punkt
-                for i, option_id in enumerate(vote.ranked_options[:3]):
-                    points = 3 - i
+                # Punkte vergeben: 1. Wahl = n Punkte, 2. Wahl = n-1 Punkte, etc.
+                max_points = len(decision.voting_options)
+                
+                for rank, option_id in enumerate(vote.ranked_options[:len(decision.voting_options)]):
+                    points = max_points - rank
                     option_scores[option_id] += points
-                    
-        # Finde Option mit höchster Punktzahl
-        winning_option_id = max(option_scores.items(), key=lambda x: x[1])[0]
-        decision.winning_option_id = winning_option_id
-        decision.winning_option = next(opt for opt in decision.voting_options if opt.option_id == winning_option_id)
+                    print(f"--- Vote: {vote.agent_name} ranked {option_id} #{rank+1} (+{points} points) ---")
         
-        print(f"--- Democracy Engine: Winner calculated for {decision_id}: {winning_option_id} ---")
-        return winning_option_id
+        # Finde Option mit höchster Punktzahl
+        if option_scores:
+            winning_option_id = max(option_scores.items(), key=lambda x: x[1])[0]
+            winning_score = option_scores[winning_option_id]
+            
+            decision.winning_option_id = winning_option_id
+            decision.winning_option = next(opt for opt in decision.voting_options if opt.option_id == winning_option_id)
+            
+            # Create final decision text
+            decision.final_decision = f"DEMOCRATIC DECISION COMPLETE!\n\nWinner: {decision.winning_option.title}\n\nFinal Scores:\n"
+            for option_id, score in sorted(option_scores.items(), key=lambda x: x[1], reverse=True):
+                option = next(opt for opt in decision.voting_options if opt.option_id == option_id)
+                decision.final_decision += f"- {option.title}: {score} points\n"
+            
+            decision.final_decision += f"\nSelected Option Details:\n{decision.winning_option.description}"
+            
+            print(f"--- Democracy Engine: Winner calculated for {decision_id}: {winning_option_id} ({winning_score} points) ---")
+            return winning_option_id
+        
+        return None
     
-    def finalize_decision(self, decision_id: str, final_decision_text: str) -> bool:
+    def finalize_decision(self, decision_id: str, final_decision_text: str = None) -> bool:
         """Finalisiert die Entscheidung und verschiebt sie zu completed."""
         if decision_id not in self.active_decisions:
             return False
             
         decision = self.active_decisions[decision_id]
-        decision.final_decision = final_decision_text
+        
+        if final_decision_text:
+            decision.final_decision = final_decision_text
+        
         decision.end_time = datetime.now()
         decision.current_phase = VotingPhase.COMMITMENT
         
@@ -324,7 +350,7 @@ class TriggerDemocraticDecisionTool(BaseTool):
     Sollte vom Project Manager aufgerufen werden, wenn ein Konflikt erkannt wird
     oder eine wichtige Entscheidung demokratisch getroffen werden muss.
     """
-    args_schema: Type[BaseModel] = TriggerDemocraticDecisionInput  # <-- FIXED: Added Type annotation
+    args_schema: Type[BaseModel] = TriggerDemocraticDecisionInput
     
     def _run(self, conflict_type: str, trigger_reason: str, context: str, participating_agents: List[str]) -> str:
         try:
@@ -356,7 +382,7 @@ class SubmitProposalTool(BaseTool):
     Reicht einen Vorschlag für eine laufende demokratische Entscheidung ein.
     Jeder Agent kann genau einen Vorschlag pro Entscheidung einreichen.
     """
-    args_schema: Type[BaseModel] = SubmitProposalInput  # <-- FIXED: Added Type annotation
+    args_schema: Type[BaseModel] = SubmitProposalInput
     
     def _run(self, decision_id: str, agent_name: str, proposal: str, reasoning: str) -> str:
         success = _democracy_engine.add_agent_proposal(decision_id, agent_name, proposal, reasoning)
@@ -382,6 +408,45 @@ class SubmitProposalTool(BaseTool):
         
         return f"Proposal successfully submitted by {agent_name} for decision {decision_id}"
 
+# NEW: Submit Vote Tool
+class SubmitVoteInput(BaseModel):
+    decision_id: str = Field(..., description="ID der demokratischen Entscheidung")
+    agent_name: str = Field(..., description="Name des abstimmenden Agents")
+    ranked_options: List[str] = Field(..., description="Liste der Option-IDs in Präferenz-Reihenfolge (1. Wahl zuerst)")
+    reasoning: str = Field(..., description="Begründung für die erste Wahl")
+
+class SubmitVoteTool(BaseTool):
+    name: str = "Submit Vote Tool"
+    description: str = """
+    Reicht eine Ranked Choice Stimme für eine demokratische Entscheidung ein.
+    Der Agent rankt alle verfügbaren Optionen in Präferenz-Reihenfolge.
+    """
+    args_schema: Type[BaseModel] = SubmitVoteInput
+    
+    def _run(self, decision_id: str, agent_name: str, ranked_options: List[str], reasoning: str) -> str:
+        success = _democracy_engine.submit_agent_vote(decision_id, agent_name, ranked_options, reasoning)
+        
+        if not success:
+            status = _democracy_engine.get_decision_status(decision_id)
+            if not status:
+                return f"TOOL_ERROR: Decision {decision_id} not found"
+            
+            current_phase = status.get('current_phase', 'unknown')
+            if current_phase != 'ranked_voting':
+                return f"TOOL_ERROR: Decision {decision_id} is in phase '{current_phase}', not accepting votes"
+                
+            if agent_name not in status.get('participating_agents', []):
+                return f"TOOL_ERROR: Agent {agent_name} is not participating in decision {decision_id}"
+                
+            # Prüfe, ob bereits abgestimmt
+            existing_votes = [v['agent_name'] for v in status.get('votes', [])]
+            if agent_name in existing_votes:
+                return f"TOOL_ERROR: Agent {agent_name} has already voted for decision {decision_id}"
+                
+            return f"TOOL_ERROR: Could not submit vote for unknown reason"
+        
+        return f"Ranked vote successfully submitted by {agent_name} for decision {decision_id}"
+
 class GetDecisionStatusInput(BaseModel):
     decision_id: str = Field(..., description="ID der demokratischen Entscheidung")
 
@@ -391,7 +456,7 @@ class GetDecisionStatusTool(BaseTool):
     Ruft den aktuellen Status einer demokratischen Entscheidung ab.
     Zeigt Phase, Vorschläge, Stimmen und andere relevante Informationen.
     """
-    args_schema: Type[BaseModel] = GetDecisionStatusInput  # <-- FIXED: Added Type annotation
+    args_schema: Type[BaseModel] = GetDecisionStatusInput
     
     def _run(self, decision_id: str) -> str:
         status = _democracy_engine.get_decision_status(decision_id)
@@ -403,45 +468,64 @@ class GetDecisionStatusTool(BaseTool):
 # Export der Tools
 trigger_democratic_decision_tool = TriggerDemocraticDecisionTool()
 submit_proposal_tool = SubmitProposalTool() 
+submit_vote_tool = SubmitVoteTool()  # NEW!
 get_decision_status_tool = GetDecisionStatusTool()
 
 if __name__ == '__main__':
-    print("=== Testing Democratic Voting System ===")
+    print("=== Testing COMPLETE Democratic Voting System ===")
     
-    # Test 1: Trigger Decision
+    # Test complete workflow
     print("\n1. Triggering a democratic decision...")
     result = trigger_democratic_decision_tool._run(
         conflict_type="architecture_decision",
-        trigger_reason="Framework choice for new web app",
-        context="We need to choose between React, Vue, and vanilla JS for the new project. Consider maintainability, performance, and team skills.",
-        participating_agents=["Developer", "Tester", "Project Manager"]
+        trigger_reason="Complete workflow test",
+        context="Test the complete democratic process with proposals and voting.",
+        participating_agents=["Agent A", "Agent B", "Agent C"]
     )
     print(f"Result: {result}")
     
-    # Extract decision ID from result
+    # Extract decision ID
     decision_id = result.split("ID: ")[1].split(".")[0]
     
-    # Test 2: Submit proposals
-    print(f"\n2. Submitting proposals for decision {decision_id}...")
-    
+    # Test proposals
+    print(f"\n2. Submitting proposals for {decision_id}...")
     proposals = [
-        ("Developer", "React with TypeScript", "Better tooling and maintainability"),
-        ("Tester", "Vue.js", "Easier testing and good documentation"),
-        ("Project Manager", "React", "Future-proof and team knows it")
+        ("Agent A", "Option Alpha", "Because it's first"),
+        ("Agent B", "Option Beta", "Because it's second"), 
+        ("Agent C", "Option Gamma", "Because it's third")
     ]
     
     for agent, proposal, reasoning in proposals:
-        result = submit_proposal_tool._run(
-            decision_id=decision_id,
-            agent_name=agent,
-            proposal=proposal,
-            reasoning=reasoning
-        )
+        result = submit_proposal_tool._run(decision_id, agent, proposal, reasoning)
         print(f"  {agent}: {result}")
     
-    # Test 3: Check status
-    print(f"\n3. Checking decision status...")
-    status = get_decision_status_tool._run(decision_id=decision_id)
-    print(f"Status:\n{status}")
+    # Advance to synthesis (manual for test)
+    _democracy_engine.advance_phase(decision_id, VotingPhase.SYNTHESIS)
     
-    print("\n=== Democracy Engine Testing Complete ===")
+    # Mock synthesis
+    mock_options = [
+        {"title": "Option Alpha Enhanced", "description": "Enhanced version of Alpha", "source_proposals": ["Agent A"]},
+        {"title": "Option Beta Plus", "description": "Improved Beta", "source_proposals": ["Agent B"]},
+        {"title": "Hybrid Gamma", "description": "Combined approach", "source_proposals": ["Agent C"]}
+    ]
+    _democracy_engine.synthesize_options(decision_id, mock_options)
+    _democracy_engine.advance_phase(decision_id, VotingPhase.RANKED_VOTING)
+    
+    # Test voting
+    print(f"\n3. Submitting ranked votes...")
+    votes = [
+        ("Agent A", ["option_1", "option_2", "option_3"], "Alpha is best"),
+        ("Agent B", ["option_2", "option_3", "option_1"], "Beta wins"), 
+        ("Agent C", ["option_3", "option_1", "option_2"], "Gamma rules")
+    ]
+    
+    for agent, ranked_opts, reasoning in votes:
+        result = submit_vote_tool._run(decision_id, agent, ranked_opts, reasoning)
+        print(f"  {agent}: {result}")
+    
+    # Check final status
+    print(f"\n4. Final decision status...")
+    final_status = get_decision_status_tool._run(decision_id)
+    print(final_status)
+    
+    print("\n=== COMPLETE Democracy Engine Testing Complete ===")

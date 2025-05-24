@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Any, Optional, Type
+from typing import Dict, Optional, List, Type, Any
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from dataclasses import dataclass
@@ -28,9 +28,7 @@ class ProposalSynthesisLogic:
     """Logik für die Synthese von Agent-Vorschlägen zu Wahloptionen."""
     
     def analyze_proposals(self, proposals: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Analysiert alle Vorschläge und identifiziert Themen und Überschneidungen.
-        """
+        """Analysiert alle Vorschläge und identifiziert Themen und Überschneidungen."""
         if not proposals:
             return {"error": "No proposals to analyze"}
         
@@ -44,12 +42,11 @@ class ProposalSynthesisLogic:
         
         # Einfache Keyword-basierte Themen-Erkennung
         technology_keywords = {
-            "react": ["react", "jsx", "typescript", "ts"],
-            "vue": ["vue", "vue.js", "composition"],
-            "vanilla": ["vanilla", "plain", "javascript", "js", "native"],
-            "performance": ["speed", "fast", "performance", "optimize", "efficient"],
-            "maintainability": ["maintain", "clean", "readable", "documentation", "structure"],
-            "testing": ["test", "testing", "debug", "quality", "reliable"]
+            "meta_documentation": ["meta", "documentation", "process", "creation", "showcase"],
+            "collaboration": ["collaboration", "team", "collaborative", "democratic"],
+            "technical": ["technical", "architecture", "code", "development", "stack"],
+            "overview": ["overview", "about", "general", "mission", "capabilities"],
+            "contact": ["contact", "reach", "communication"]
         }
         
         proposal_themes = defaultdict(list)
@@ -70,30 +67,27 @@ class ProposalSynthesisLogic:
         return analysis
     
     def cluster_similar_proposals(self, proposals: List[Dict[str, Any]]) -> List[ProposalCluster]:
-        """
-        Clustert ähnliche Vorschläge basierend auf Technologie und Ansatz.
-        """
+        """Clustert ähnliche Vorschläge basierend auf Inhalt und Ansatz."""
         if not proposals:
             return []
         
-        # Einfache Clustering-Logik basierend auf Schlüsselwörtern
+        print(f"📊 Clustering {len(proposals)} proposals...")
+        
         clusters = {}
         
         for proposal in proposals:
             text = (proposal["proposal"] + " " + proposal["reasoning"]).lower()
             agent = proposal["agent_name"]
             
-            # Bestimme primäres Thema
+            # Bestimme primäres Thema basierend auf Inhalt
             primary_theme = "general"
             
-            if any(word in text for word in ["react", "jsx", "typescript"]):
-                primary_theme = "react"
-            elif any(word in text for word in ["vue", "composition"]):
-                primary_theme = "vue"
-            elif any(word in text for word in ["vanilla", "plain", "native"]):
-                primary_theme = "vanilla"
-            elif any(word in text for word in ["performance", "speed", "optimize"]):
-                primary_theme = "performance"
+            if any(word in text for word in ["meta", "documentation", "process", "showcase", "creation"]):
+                primary_theme = "meta_documentation"
+            elif any(word in text for word in ["about", "overview", "general", "mission", "contact"]):
+                primary_theme = "overview_approach"
+            elif any(word in text for word in ["technical", "architecture", "code", "development"]):
+                primary_theme = "technical_focus"
             
             if primary_theme not in clusters:
                 clusters[primary_theme] = ProposalCluster(
@@ -115,12 +109,11 @@ class ProposalSynthesisLogic:
                 # Merge reasoning
                 cluster.merged_reasoning += f" | {agent}: {proposal['reasoning']}"
         
+        print(f"✅ Created {len(clusters)} clusters: {list(clusters.keys())}")
         return list(clusters.values())
     
     def generate_voting_options(self, clusters: List[ProposalCluster], max_options: int = 4) -> List[Dict[str, Any]]:
-        """
-        Generiert klare Wahloptionen aus den Proposal-Clustern.
-        """
+        """Generiert klare Wahloptionen aus den Proposal-Clustern."""
         voting_options = []
         
         # Sortiere Cluster nach Anzahl der unterstützenden Agents
@@ -134,16 +127,17 @@ class ProposalSynthesisLogic:
                 "rationale": cluster.merged_reasoning
             }
             voting_options.append(option)
+            print(f"📋 Option {i+1}: {option['title']} (from {', '.join(cluster.contributing_agents)})")
         
         return voting_options
     
     def _generate_option_title(self, cluster: ProposalCluster) -> str:
         """Generiert einen prägnanten Titel für eine Wahloption."""
         theme_titles = {
-            "react": "React-based Approach",
-            "vue": "Vue.js Implementation", 
-            "vanilla": "Vanilla JavaScript Solution",
-            "performance": "Performance-Optimized Approach",
+            "meta_documentation": "Meta-Documentation Approach",
+            "overview_approach": "General Overview Approach", 
+            "technical_focus": "Technical-Focused Approach",
+            "collaboration": "Collaboration-Centered Approach",
             "general": "Hybrid Approach"
         }
         
@@ -222,22 +216,35 @@ class SynthesizeOptionsTool(BaseTool):
         if not _democracy_engine:
             return "TOOL_ERROR: Democracy engine not available"
         
+        print(f"🔄 Synthesizing options for decision {decision_id}...")
+        
         status = _democracy_engine.get_decision_status(decision_id)
         if not status:
             return f"TOOL_ERROR: Decision {decision_id} not found"
         
-        if status.get("current_phase") != "idea_collection":
-            return f"TOOL_ERROR: Decision {decision_id} is not in idea_collection phase"
-        
+        # FIXED: Don't require specific phase, just check if proposals exist
         proposals = status.get("proposals", [])
         if not proposals:
             return f"TOOL_ERROR: No proposals to synthesize for decision {decision_id}"
         
+        print(f"📋 Found {len(proposals)} proposals to synthesize")
+        
         # Cluster proposals
         clusters = _synthesis_logic.cluster_similar_proposals(proposals)
         
+        if not clusters:
+            return f"TOOL_ERROR: Could not create clusters from proposals"
+        
         # Generate voting options
         voting_options = _synthesis_logic.generate_voting_options(clusters, max_options)
+        
+        if not voting_options:
+            return f"TOOL_ERROR: Could not generate voting options from clusters"
+        
+        print(f"🗳️ Generated {len(voting_options)} voting options")
+        
+        # FIXED: Manually advance to synthesis phase first
+        _democracy_engine.advance_phase(decision_id, VotingPhase.SYNTHESIS)
         
         # Update the decision with synthesized options
         success = _democracy_engine.synthesize_options(decision_id, voting_options)
@@ -245,9 +252,10 @@ class SynthesizeOptionsTool(BaseTool):
         if not success:
             return f"TOOL_ERROR: Could not update decision {decision_id} with synthesized options"
         
-        # Advance to synthesis phase, then to voting phase
-        _democracy_engine.advance_phase(decision_id, VotingPhase.SYNTHESIS)
+        # FIXED: Advance to voting phase
         _democracy_engine.advance_phase(decision_id, VotingPhase.RANKED_VOTING)
+        
+        print(f"✅ Decision {decision_id} advanced to RANKED_VOTING phase")
         
         result = {
             "decision_id": decision_id,
@@ -255,7 +263,8 @@ class SynthesizeOptionsTool(BaseTool):
             "clusters_found": len(clusters),
             "options_created": len(voting_options),
             "phase": "ranked_voting",
-            "message": f"Successfully synthesized {len(proposals)} proposals into {len(voting_options)} voting options"
+            "message": f"Successfully synthesized {len(proposals)} proposals into {len(voting_options)} voting options",
+            "status": "success"
         }
         
         return json.dumps(result, indent=2, ensure_ascii=False)
@@ -395,41 +404,34 @@ analyze_proposals_tool = AnalyzeProposalsTool()
 synthesize_voting_options_tool = SynthesizeOptionsTool()
 facilitate_reflection_tool = FacilitateReflectionTool()
 
+# TEST FUNCTION
+def test_synthesis_fix():
+    """Test the fixed synthesis with the existing decision."""
+    print("🧪 === TESTING FIXED SYNTHESIS ===")
+    
+    # Use the existing decision from the logs
+    decision_id = "decision_1748122344_architecture_decision"
+    
+    try:
+        # Test synthesis directly
+        result = synthesize_voting_options_tool._run(decision_id, max_options=3)
+        print(f"📊 Synthesis Result:\n{result}")
+        
+        # Check updated status
+        status = _democracy_engine.get_decision_status(decision_id)
+        if status:
+            print(f"\n📋 Updated Status:")
+            print(f"Phase: {status.get('current_phase', 'unknown')}")
+            print(f"Voting Options: {len(status.get('voting_options', []))}")
+            print(f"Proposals: {len(status.get('proposals', []))}")
+        
+        return result
+        
+    except Exception as e:
+        print(f"❌ Test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"status": "failed", "error": str(e)}
+
 if __name__ == '__main__':
-    print("=== Testing Synthesis Tools ===")
-    
-    # Mock proposals for testing
-    test_proposals = [
-        {
-            "agent_name": "Developer",
-            "proposal": "React with TypeScript",
-            "reasoning": "Better tooling, type safety, and our team already knows React well"
-        },
-        {
-            "agent_name": "Tester", 
-            "proposal": "Vue.js framework",
-            "reasoning": "Easier testing, great documentation, and gentler learning curve"
-        },
-        {
-            "agent_name": "Project Manager",
-            "proposal": "React approach",
-            "reasoning": "Future-proof technology with strong ecosystem and community"
-        }
-    ]
-    
-    print("1. Testing proposal analysis...")
-    analysis = _synthesis_logic.analyze_proposals(test_proposals)
-    print(f"Analysis: {json.dumps(analysis, indent=2)}")
-    
-    print("\n2. Testing proposal clustering...")
-    clusters = _synthesis_logic.cluster_similar_proposals(test_proposals)
-    for i, cluster in enumerate(clusters):
-        print(f"Cluster {i+1}: {cluster.theme} - Agents: {cluster.contributing_agents}")
-    
-    print("\n3. Testing voting option generation...")
-    voting_options = _synthesis_logic.generate_voting_options(clusters)
-    for i, option in enumerate(voting_options):
-        print(f"Option {i+1}: {option['title']}")
-        print(f"  Description: {option['description'][:100]}...")
-    
-    print("\n=== Synthesis Tools Testing Complete ===")
+    test_synthesis_fix()

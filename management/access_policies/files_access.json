@@ -1,0 +1,129 @@
+{
+  "agent_roles": {
+    "ProjectManager": {
+      "description": "Oversees the project, manages tasks, and facilitates communication. Has broad access for oversight and coordination.",
+      "permissions": "read/write"
+    },
+    "DesignerAgent": {
+      "description": "Creates and manages design assets, mockups, and style guides.",
+      "permissions": "read/write"
+    },
+    "DeveloperAgent": {
+      "description": "Writes, tests, and maintains the application code.",
+      "permissions": "read/write"
+    },
+    "ContentAgent": {
+      "description": "Creates and manages textual and multimedia content for the application.",
+      "permissions": "read/write"
+    },
+    "QAAgent": {
+      "description": "Tests the application, reports bugs, and ensures quality standards.",
+      "permissions": "read/write"
+    }
+  },
+  "directory_permissions": {
+    "/project_root/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "read",
+      "DeveloperAgent": "read",
+      "ContentAgent": "read",
+      "QAAgent": "read"
+    },
+    "/project_root/design/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "read/write",
+      "DeveloperAgent": "read",
+      "ContentAgent": "read",
+      "QAAgent": "read"
+    },
+    "/project_root/src/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "read",
+      "DeveloperAgent": "read/write",
+      "ContentAgent": "read",
+      "QAAgent": "read"
+    },
+    "/project_root/content/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "read",
+      "DeveloperAgent": "read",
+      "ContentAgent": "read/write",
+      "QAAgent": "read"
+    },
+    "/project_root/tests/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "read",
+      "DeveloperAgent": "read/write",
+      "ContentAgent": "read",
+      "QAAgent": "read/write"
+    },
+    "/project_root/docs/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "read/write",
+      "DeveloperAgent": "read/write",
+      "ContentAgent": "read/write",
+      "QAAgent": "read/write"
+    },
+    "/project_root/management/": {
+      "ProjectManager": "read/write",
+      "DesignerAgent": "none",
+      "DeveloperAgent": "none",
+      "ContentAgent": "none",
+      "QAAgent": "none"
+    },
+    "/project_root/management/access_policies/": {
+       "ProjectManager": "read/write",
+       "DesignerAgent": "none",
+       "DeveloperAgent": "none",
+       "ContentAgent": "none",
+       "QAAgent": "none"
+    }
+  },
+  "file_type_rules": {
+    "*.md": {
+      "default_permission": "read",
+      "exceptions": {
+        "/project_root/docs/": "read/write"
+      }
+    },
+    "*.json": {
+      "default_permission": "read",
+      "exceptions": {
+        "/project_root/management/access_policies/": {
+            "ProjectManager": "read/write"
+        },
+        "/project_root/src/config/": {
+            "DeveloperAgent": "read/write",
+            "ProjectManager": "read/write"
+        }
+      }
+    },
+    "*.log": {
+      "default_permission": "read",
+      "DeveloperAgent": "read/write",
+      "ProjectManager": "read/write",
+      "QAAgent": "read/write"
+    },
+    "*.png, *.jpg, *.svg, *.fig": {
+        "default_permission": "read",
+        "/project_root/design/": {
+            "DesignerAgent": "read/write",
+            "ProjectManager": "read/write"
+        }
+    },
+    "*.html, *.css, *.js, *.ts, *.py": {
+        "default_permission": "read",
+        "/project_root/src/": {
+            "DeveloperAgent": "read/write",
+            "ProjectManager": "read/write"
+        }
+    }
+  },
+  "general_notes": [
+    "Permissions are hierarchical. Deny rules override allow rules if conflicts arise (though this policy primarily uses grants).",
+    "The 'ProjectManager' role has broad access for oversight and management. This should be reviewed periodically.",
+    "Specific file access within a directory can be further refined by file type rules.",
+    "Agents should only have write access to directories and files essential for their role to maintain the 'Need-to-Know' principle.",
+    "These policies are a baseline and may be adjusted based on project phase and specific task requirements, ideally through a democratic decision process if changes are significant or contentious."
+  ]
+}

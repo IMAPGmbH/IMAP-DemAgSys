@@ -1,113 +1,48 @@
 {
-  "agents": {
-    "ProjectManager": "Gemini 2.5 Pro",
-    "DesignerAgent": "Claude/Gemini (To be assigned/Democratically Chosen)",
-    "DeveloperAgent": "Codestral/Mistral (To be assigned/Democratically Chosen)",
-    "ContentAgent": "All Agents (Collaborative)",
-    "QAAgent": "Grok (To be assigned)",
-    "AllAgents": ["Gemini", "Claude", "Mistral", "Codestral", "Grok"]
-  },
-  "access_rules": [
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "AllAgents": "R" 
-      }
+  "version": "1.0",
+  "description": "File access policies for IMAP agents",
+  "default_policy": "deny",
+  "agent_policies": {
+    "Project Manager": {
+      "read": [
+        "*"
+      ],
+      "write": [
+        "management/*",
+        "docs/*"
+      ],
+      "description": "Full orchestration access"
     },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/requirements/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "AllAgents": "R"
-      }
+    "Developer": {
+      "read": [
+        "src/*",
+        "management/planning/*",
+        "management/requirements/*"
+      ],
+      "write": [
+        "src/*"
+      ],
+      "description": "Source code development access"
     },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/planning/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "AllAgents": "R"
-      }
+    "Tester": {
+      "read": [
+        "src/*",
+        "testing/*"
+      ],
+      "write": [
+        "testing/*"
+      ],
+      "description": "Testing and quality assurance access"
     },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/planning/website_concept_and_pages.md",
-      "permissions": {
-        "ProjectManager": "RW" 
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/content/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "ContentAgent": "RW",
-        "AllAgents": "R" 
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/decisions/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "AllAgents": "R"
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/management/retrospective/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "Grok": "RW",
-        "AllAgents": "R"
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/src/",
-      "permissions": {
-        "DeveloperAgent": "RW",
-        "ProjectManager": "R",
-        "QAAgent": "R",
-        "DesignerAgent": "R" 
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/docs/",
-      "permissions": {
-        "ProjectManager": "RW",
-        "DesignerAgent": "RW", 
-        "DeveloperAgent": "R",
-        "AllAgents": "R" 
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/docs/style_guide.md",
-      "permissions": {
-        "DesignerAgent": "RW",
-        "DeveloperAgent": "R",
-        "ProjectManager": "RW"
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/research/design/",
-      "permissions": {
-        "DesignerAgent": "RW",
-        "ProjectManager": "R",
-        "AllAgents": "R" 
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/testing/",
-      "permissions": {
-        "QAAgent": "RW",
-        "ProjectManager": "R",
-        "DeveloperAgent": "R"
-      }
-    },
-    {
-      "path_prefix": "PROJECTS/I_HOPE_IT_WORKS/dist/",
-      "permissions": {
-        "DeveloperAgent": "RW", 
-        "DeploymentAgent": "R", 
-        "ProjectManager": "R"
-      }
+    "Researcher": {
+      "read": [
+        "research/*",
+        "management/requirements/*"
+      ],
+      "write": [
+        "research/*"
+      ],
+      "description": "Research and analysis access"
     }
-  ],
-  "general_notes": "Permissions will be refined as specific agents are assigned to roles and tasks. Democratic decision outputs in management/decisions/ are written by PM after decision. Content generation tasks might require more granular permissions within management/content/."
+  }
 }
